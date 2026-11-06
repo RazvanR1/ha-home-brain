@@ -1,12 +1,12 @@
 ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
-WORKDIR /app
+WORKDIR /opt/home_brain
 
-# Dependintele Python se adauga aici cand scriem codul:
-# COPY requirements.txt .
-# RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
+COPY app ./app
 COPY rootfs /
 RUN chmod a+x /run.sh
 

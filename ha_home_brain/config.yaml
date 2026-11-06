@@ -1,7 +1,7 @@
 name: Home Brain
-version: "0.1.0"
+version: "0.2.0"
 slug: ha_home_brain
-description: Creierul casei - urmareste Home Assistant si reactioneaza cand ceva nu e in regula
+description: Creierul casei - paznic HA, automatizări inteligente, asistent AI și panou
 url: https://github.com/RazvanR1/ha-home-brain
 arch:
   - amd64
@@ -11,7 +11,68 @@ startup: application
 boot: auto
 homeassistant_api: true
 hassio_api: true
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:brain
+panel_title: Home Brain
 options:
   log_level: info
+  notify_services: []
+  ntfy_url: ""
+  guard:
+    unavailable_minutes: 30
+    battery_threshold: 20
+    interval_seconds: 60
+    ignore: []
+  presence_camera:
+    persons: []
+    camera_switches: []
+  heating_ac_lock:
+    ac_climates: []
+    boiler_climate: ""
+  follow_thermostat:
+    leader_climate: ""
+    follower_climates: []
+  assistant:
+    ollama_url: ""
+    model: "llama3.1:8b"
+    allowed_domains:
+      - light
+      - switch
+      - climate
+      - cover
+      - fan
+      - media_player
+      - scene
+      - script
+    max_entities: 300
 schema:
   log_level: list(debug|info|warning|error)
+  notify_services:
+    - str
+  ntfy_url: str?
+  guard:
+    unavailable_minutes: int(1,)
+    battery_threshold: int(0,100)
+    interval_seconds: int(10,)
+    ignore:
+      - str
+  presence_camera:
+    persons:
+      - str
+    camera_switches:
+      - str
+  heating_ac_lock:
+    ac_climates:
+      - str
+    boiler_climate: str?
+  follow_thermostat:
+    leader_climate: str?
+    follower_climates:
+      - str
+  assistant:
+    ollama_url: str?
+    model: str
+    allowed_domains:
+      - str
+    max_entities: int(20,2000)

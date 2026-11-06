@@ -1,13 +1,17 @@
 # ha-home-brain
 
-Add-on Home Assistant pentru RusHome: „creierul casei” care urmărește Home Assistant și reacționează când ceva nu e în regulă.
+Add-on Home Assistant pentru RusHome: paznic HA, automatizări inteligente, asistent AI (Jarvis) și panou în sidebar.
 
 ## Instalare
 
 1. În Home Assistant: **Settings → Add-ons → Add-on Store → ⋮ → Repositories**.
 2. Adaugă `https://github.com/RazvanR1/ha-home-brain`.
-3. Instalează **Home Brain**.
+3. Instalează **Home Brain**, completează opțiunile (vezi [DOCS.md](ha_home_brain/DOCS.md)) și pornește-l.
 
-## Stare
+## Dezvoltare
 
-Schelet de bază (config, Dockerfile, script de pornire). Codul aplicației urmează.
+```bash
+pip install -r ha_home_brain/requirements.txt pytest pytest-asyncio
+pytest
+```
+Testele pornesc un Home Assistant fals (WebSocket) și un Ollama fals.
