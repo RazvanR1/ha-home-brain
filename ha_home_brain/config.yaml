@@ -1,5 +1,5 @@
 name: Home Brain
-version: "0.2.0"
+version: "0.3.0"
 slug: ha_home_brain
 description: Creierul casei - paznic HA, automatizări inteligente, asistent AI și panou
 url: https://github.com/RazvanR1/ha-home-brain
@@ -21,6 +21,9 @@ options:
   ntfy_url: ""
   guard:
     unavailable_minutes: 30
+    max_unavailable_hours: 24
+    bad_states:
+      - unavailable
     battery_threshold: 20
     interval_seconds: 60
     ignore: []
@@ -53,6 +56,11 @@ schema:
   ntfy_url: str?
   guard:
     unavailable_minutes: int(1,)
+    max_unavailable_hours: int(1,)
+    bad_states:
+      - str
+    domains:
+      - str?
     battery_threshold: int(0,100)
     interval_seconds: int(10,)
     ignore:

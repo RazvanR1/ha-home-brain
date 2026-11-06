@@ -29,13 +29,14 @@ class Notifier:
         self.history: deque[Alert] = deque(maxlen=history)
         self.active: dict[str, Alert] = {}
 
-    async def raise_alert(self, alert: Alert) -> None:
+    async def raise_alert(self, alert: Alert, send: bool = True) -> None:
         """Trimite alerta o singură dată per cheie, până se rezolvă."""
         if alert.key in self.active:
             return
         self.active[alert.key] = alert
         self.history.appendleft(alert)
-        await self.send(alert.title, alert.message, alert.level)
+        if send:
+            await self.send(alert.title, alert.message, alert.level)
 
     async def resolve(self, key: str, message: str | None = None) -> None:
         alert = self.active.pop(key, None)

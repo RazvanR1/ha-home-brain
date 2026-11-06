@@ -60,7 +60,8 @@ class Assistant:
             *(history or [])[-6:],
             {"role": "user", "content": question},
         ]
-        payload = {"model": self.model, "messages": messages, "stream": False, "format": "json"}
+        payload = {"model": self.model, "messages": messages, "stream": False, "format": "json",
+                   "think": False, "keep_alive": -1}
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=120)) as s:
                 async with s.post(f"{self.url}/api/chat", json=payload) as r:

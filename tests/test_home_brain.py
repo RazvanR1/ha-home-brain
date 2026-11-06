@@ -166,6 +166,47 @@ async def test_guard_alerts_and_resolves(setup):
     assert any("Rezolvat" in c["service_data"]["title"] for c in fake.calls if c["domain"] == "notify")
 
 
+def _ago(hours):
+    return (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+
+
+async def test_guard_real_world_noise(setup):
+    """Situația reală din casă: multe entități picate de mult, TV-uri stinse, `unknown` normale."""
+    fake, brain = setup
+    g = brain.guard
+    brain.ha.states.clear()
+    brain.ha.states.update({
+        "sensor.hallway_temp": {"entity_id": "sensor.hallway_temp", "state": "unavailable",
+                                "attributes": {}, "last_changed": _ago(33)},   # prea vechi
+        "media_player.tv": {"entity_id": "media_player.tv", "state": "unavailable",
+                            "attributes": {}, "last_changed": _ago(2)},        # TV stins
+        "sensor.vol_size": {"entity_id": "sensor.vol_size", "state": "unknown",
+                            "attributes": {}, "last_changed": _ago(2)},        # unknown e normal
+        "light.baie": {"entity_id": "light.baie", "state": "unavailable",
+                       "attributes": {"friendly_name": "Baie"}, "last_changed": _ago(1)},
+    })
+    assert set(g.check()) == {"unavailable:light.baie"}
+
+
+async def test_guard_burst_becomes_summary(setup):
+    fake, brain = setup
+    brain.ha.states.clear()
+    for i in range(6):
+        eid = f"sensor.s{i}"
+        brain.ha.states[eid] = {"entity_id": eid, "state": "unavailable",
+                                "attributes": {"friendly_name": f"Senzor {i}"}, "last_changed": _ago(1)}
+    await brain.guard.run_once()
+    sent = [c for c in fake.calls if c["domain"] == "notify"]
+    assert len(sent) == 1 and "6 probleme" in sent[0]["service_data"]["message"]
+    assert len(brain.notifier.active) == 6
+    # Peste 24h nu mai e în „found”, dar tot e picat -> alerta NU se închide fals.
+    for s in brain.ha.states.values():
+        s["last_changed"] = _ago(30)
+    await brain.guard.run_once()
+    assert len(brain.notifier.active) == 6
+    assert len([c for c in fake.calls if c["domain"] == "notify"]) == 1
+
+
 async def test_presence_camera(setup):
     fake, brain = setup
     rule = brain.automations.rules[0]

@@ -21,6 +21,8 @@ ntfy_url: "http://ntfy.local/rushome"   # opțional
 ```yaml
 guard:
   unavailable_minutes: 30     # după cât timp e alertă
+  max_unavailable_hours: 24   # ce e picat de mai mult e considerat cunoscut
+  bad_states: [unavailable]   # adaugă unknown dacă vrei
   battery_threshold: 20       # %
   interval_seconds: 60
   ignore:                     # modele fnmatch
