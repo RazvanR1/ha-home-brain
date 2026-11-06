@@ -123,7 +123,7 @@ async def setup(monkeypatch):
     async def ollama(req):
         body = await req.json()
         q = body["messages"][-1]["content"]
-        assert "light.living" in body["messages"][1]["content"]
+        assert "light.living" in body["messages"][0]["content"]
         if "aprinde" in q:
             content = {"reply": "Aprind lumina.", "actions": [
                 {"domain": "light", "service": "turn_on", "entity_id": "light.living"},

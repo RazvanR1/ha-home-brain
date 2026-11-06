@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.1
+- Jarvis: context doar cu entitățile relevante, încadrat în `num_ctx` (implicit 8192, ca integrarea Ollama din HA), răspuns brut afișat dacă modelul nu respectă formatul.
+
 ## 0.3.0
 - Paznic adaptat la o casă reală: doar `unavailable` (nu `unknown`), sare peste ce e picat de peste 24h,
   nu urmărește media_player (TV-urile stinse), rezumat când pică mai multe deodată,
