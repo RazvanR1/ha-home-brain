@@ -1,0 +1,17 @@
+name: Home Brain
+version: "0.1.0"
+slug: ha_home_brain
+description: Creierul casei - urmareste Home Assistant si reactioneaza cand ceva nu e in regula
+url: https://github.com/RazvanR1/ha-home-brain
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: auto
+homeassistant_api: true
+hassio_api: true
+options:
+  log_level: info
+schema:
+  log_level: list(debug|info|warning|error)
