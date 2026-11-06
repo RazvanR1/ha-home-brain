@@ -59,8 +59,6 @@ schema:
     max_unavailable_hours: int(1,)
     bad_states:
       - str
-    domains:
-      - str?
     battery_threshold: int(0,100)
     interval_seconds: int(10,)
     ignore:
