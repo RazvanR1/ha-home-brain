@@ -181,6 +181,7 @@ async def setup(monkeypatch):
 
 async def test_guard_alerts_and_resolves(setup):
     fake, brain = setup
+    seen_ok(brain.guard)
     await brain.guard.run_once()
     keys = set(brain.notifier.active)
     assert keys == {"battery:sensor.usa_baterie", "unavailable:sensor.temp_dormitor"}
@@ -193,6 +194,13 @@ async def test_guard_alerts_and_resolves(setup):
     await brain.guard.run_once()
     assert "unavailable:sensor.temp_dormitor" not in brain.notifier.active
     assert any("Rezolvat" in c["service_data"]["title"] for c in fake.calls if c["domain"] == "notify")
+
+
+def seen_ok(guard, hours_ago=1.5):
+    """Simulează că paznicul a văzut toate entitățile funcționând acum câteva ore."""
+    import time as _t
+    for eid in guard.ha.states:
+        guard.last_ok[eid] = _t.time() - hours_ago * 3600
 
 
 def _ago(hours):
@@ -214,6 +222,8 @@ async def test_guard_real_world_noise(setup):
         "light.baie": {"entity_id": "light.baie", "state": "unavailable",
                        "attributes": {"friendly_name": "Baie"}, "last_changed": _ago(1)},
     })
+    seen_ok(g, 1.5)
+    g.last_ok["sensor.hallway_temp"] = __import__("time").time() - 33 * 3600
     assert set(g.check()) == {"unavailable:light.baie"}
 
 
@@ -224,6 +234,7 @@ async def test_guard_burst_becomes_summary(setup):
         eid = f"sensor.s{i}"
         brain.ha.states[eid] = {"entity_id": eid, "state": "unavailable",
                                 "attributes": {"friendly_name": f"Senzor {i}"}, "last_changed": _ago(1)}
+    seen_ok(brain.guard)
     await brain.guard.run_once()
     sent = [c for c in fake.calls if c["domain"] == "notify"]
     assert len(sent) == 1 and "6 probleme" in sent[0]["service_data"]["message"]
@@ -231,6 +242,7 @@ async def test_guard_burst_becomes_summary(setup):
     # Peste 24h nu mai e în „found”, dar tot e picat -> alerta NU se închide fals.
     for s in brain.ha.states.values():
         s["last_changed"] = _ago(30)
+    seen_ok(brain.guard, 30)
     await brain.guard.run_once()
     assert len(brain.notifier.active) == 6
     assert len([c for c in fake.calls if c["domain"] == "notify"]) == 1
@@ -355,3 +367,34 @@ async def test_recorder_tags_origin(setup):
     brain.recorder.flush_pending(force=True)
     origins = [t[4] for t in brain.store.transitions(0, ["light.living"])]
     assert origins == ["brain", "user"]
+
+
+async def test_guard_survives_ha_restart_and_own_restart(setup):
+    """HA repornește și resetează last_changed; add-on-ul repornește: fără notificări duplicate."""
+    fake, brain = setup
+    from app.guard import Guard
+    from app.notify import Notifier
+    from app.store import Store
+    store = Store(":memory:")
+    brain.ha.states.clear()
+    brain.ha.states["sensor.mort"] = {"entity_id": "sensor.mort", "state": "unavailable",
+                                      "attributes": {}, "last_changed": _ago(2)}  # mort de mult, dar HA a repornit
+    brain.ha.states["light.baie"] = {"entity_id": "light.baie", "state": "on",
+                                     "attributes": {"friendly_name": "Baie"}, "last_changed": _ago(5)}
+    n1 = Notifier(brain.ha, ["notify.mobile_app_razvan"])
+    g = Guard(brain.ha, n1, {}, store)
+    await g.run_once()
+    assert n1.active == {}  # nu l-am văzut niciodată funcționând -> nu alertăm
+    brain.ha.states["light.baie"].update(state="unavailable", last_changed=_ago(1))
+    g.last_ok["light.baie"] -= 3600  # văzut OK ultima oară acum o oră
+    await g.run_once()
+    assert set(n1.active) == {"unavailable:light.baie"}
+    sent = len([c for c in fake.calls if c["domain"] == "notify"])
+    # add-on-ul repornește cu aceeași memorie
+    n2 = Notifier(brain.ha, ["notify.mobile_app_razvan"])
+    g2 = Guard(brain.ha, n2, {}, store)
+    await g2.run_once()
+    assert len([c for c in fake.calls if c["domain"] == "notify"]) == sent
+    brain.ha.states["light.baie"].update(state="on")
+    await g2.run_once()
+    assert n2.active == {}

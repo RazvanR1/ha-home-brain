@@ -37,7 +37,7 @@ class Brain:
         self.ha = HAClient()
         self.store = store or Store()
         self.notifier = Notifier(self.ha, opts.get("notify_services", []), opts.get("ntfy_url", ""))
-        self.guard = Guard(self.ha, self.notifier, opts.get("guard", {}))
+        self.guard = Guard(self.ha, self.notifier, opts.get("guard", {}), self.store)
         self.automations = Automations(self.ha, self.notifier, opts)
         self.recorder = Recorder(self.ha, self.store, opts.get("learning", {}))
         learn = opts.get("learning", {})

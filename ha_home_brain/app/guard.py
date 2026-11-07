@@ -26,9 +26,18 @@ def _parse(ts: str | None) -> datetime | None:
 
 
 class Guard:
-    def __init__(self, ha, notifier, cfg: dict) -> None:
+    def __init__(self, ha, notifier, cfg: dict, store=None) -> None:
         self.ha = ha
         self.notifier = notifier
+        self.store = store
+        # Când am văzut ultima oară fiecare entitate funcționând. Nu ne bazăm pe last_changed din HA,
+        # pentru că la o repornire HA îl resetează și tot ce era deja picat ar părea „proaspăt”.
+        self.last_ok: dict[str, float] = (store.get("guard_last_ok", {}) if store else {}) or {}
+        if store:
+            for key in store.get("guard_active", []) or []:
+                notifier.active.setdefault(key, Alert(
+                    key=key, message="", title={"unavailable": "Dispozitiv indisponibil",
+                                                "battery": "Baterie slabă"}.get(key.split(":")[0], "Alertă")))
         self.unavailable_minutes = int(cfg.get("unavailable_minutes", 30))
         # Ce e picat de mai mult de atât e „cunoscut” (dispozitiv scos, container șters) -> nu alertăm.
         self.max_hours = float(cfg.get("max_unavailable_hours", 24))
@@ -69,9 +78,16 @@ class Guard:
             name = st.get("attributes", {}).get("friendly_name", eid)
             state = st.get("state")
 
+            if domain in self.domains and state not in self.bad_states and state is not None:
+                self.last_ok[eid] = now.timestamp()
             if domain in self.domains and state in self.bad_states:
                 since = _parse(st.get("last_changed"))
-                if since:
+                seen_ok = self.last_ok.get(eid)
+                if self.store is not None and since and seen_ok:
+                    since = max(since, datetime.fromtimestamp(seen_ok, timezone.utc))
+                recent_ok = self.store is None or (
+                    seen_ok is not None and now.timestamp() - seen_ok <= self.max_hours * 3600)
+                if since and recent_ok:
                     age = (now - since).total_seconds()
                     if self.unavailable_minutes * 60 <= age <= self.max_hours * 3600:
                         found[f"unavailable:{eid}"] = Alert(
@@ -120,6 +136,9 @@ class Guard:
                 name = self.ha.attr(eid, "friendly_name", eid)
                 await self.notifier.resolve(key, f"{name} e din nou în regulă.")
         self.findings = found
+        if self.store is not None:
+            self.store.set("guard_last_ok", self.last_ok)
+            self.store.set("guard_active", sorted(self.notifier.active))
 
     async def run_forever(self) -> None:
         await self.ha.connected.wait()

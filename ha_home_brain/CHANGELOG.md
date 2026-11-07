@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.1
+- Paznic: ține minte singur când a văzut ultima oară fiecare dispozitiv funcționând (o repornire HA nu mai face ca tot ce era deja picat să pară nou); alertele deschise rămân salvate peste restarturi, fără notificări duplicate.
+
 ## 0.4.0 – creierul
 - Memorie locală (SQLite) cu originea fiecărei schimbări; import de istoric la pornire.
 - Obiceiuri de oră și de secvență, doar din acțiunile omului, testate pe istoric, filtrate față de
