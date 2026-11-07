@@ -150,7 +150,7 @@ class Automations:
         self._lock = asyncio.Lock()
         ha.on_state_change(self._on_change)
 
-    async def _on_change(self, entity_id: str, old, new) -> None:
+    async def _on_change(self, entity_id: str, old, new, origin: str = "") -> None:
         for rule in self.rules:
             if rule.enabled and entity_id in rule.entities():
                 await self._run(rule)

@@ -1,7 +1,7 @@
 name: Home Brain
-version: "0.3.1"
+version: "0.4.0"
 slug: ha_home_brain
-description: Creierul casei - paznic HA, automatizări inteligente, asistent AI și panou
+description: Creierul casei - învață obiceiurile, vede ce e neobișnuit, agenți AI locali, aprobări din telefon
 url: https://github.com/RazvanR1/ha-home-brain
 arch:
   - amd64
@@ -9,6 +9,7 @@ arch:
 init: false
 startup: application
 boot: auto
+watchdog: "http://[HOST]:[PORT:8099]/api/health"
 homeassistant_api: true
 hassio_api: true
 ingress: true
@@ -17,6 +18,8 @@ panel_icon: mdi:brain
 panel_title: Home Brain
 options:
   log_level: info
+  time_zone: "Europe/Bucharest"
+  site_context: ""
   notify_services: []
   ntfy_url: ""
   guard:
@@ -27,6 +30,36 @@ options:
     battery_threshold: 20
     interval_seconds: 60
     ignore: []
+  learning:
+    enabled: true
+    persons: []
+    history_import_days: 10
+    min_support_days: 4
+    min_confidence: 0.6
+    propose_automations: true
+    max_proposals_per_day: 2
+  unusual:
+    range: true
+    silent: true
+    flapping: true
+    dwell: true
+    open_away: false
+    min_days: 5
+    ignore: []
+  safety:
+    autonomy: copilot
+    autonomy_overrides: []
+    min_temperature: 16
+    max_temperature: 26
+    actionable_notifications: true
+  agents:
+    agents:
+      - climate
+      - energy
+      - security
+      - server
+    agents_interval_hours: 6
+    quiet_hours: "23-7"
   presence_camera:
     persons: []
     camera_switches: []
@@ -52,6 +85,8 @@ options:
     num_ctx: 8192
 schema:
   log_level: list(debug|info|warning|error)
+  time_zone: str
+  site_context: str?
   notify_services:
     - str
   ntfy_url: str?
@@ -64,6 +99,36 @@ schema:
     interval_seconds: int(10,)
     ignore:
       - str
+  learning:
+    enabled: bool
+    persons:
+      - str
+    history_import_days: int(1,60)
+    min_support_days: int(2,30)
+    min_confidence: float(0.3,1)
+    propose_automations: bool
+    max_proposals_per_day: int(0,20)
+  unusual:
+    range: bool
+    silent: bool
+    flapping: bool
+    dwell: bool
+    open_away: bool
+    min_days: int(1,60)
+    ignore:
+      - str
+  safety:
+    autonomy: list(shadow|copilot|autonomous)
+    autonomy_overrides:
+      - str
+    min_temperature: float
+    max_temperature: float
+    actionable_notifications: bool
+  agents:
+    agents:
+      - list(climate|energy|security|server)
+    agents_interval_hours: float(0.5,168)
+    quiet_hours: str
   presence_camera:
     persons:
       - str

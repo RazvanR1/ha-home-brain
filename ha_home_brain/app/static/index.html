@@ -5,103 +5,206 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Home Brain</title>
 <style>
-  :root { --bg:#111418; --card:#1b2026; --line:#2a313a; --text:#e6e9ee; --muted:#8b95a3;
-          --ok:#3fb27f; --warn:#e0a63a; --crit:#e5534b; --accent:#4c9aff; }
+  :root { --bg:#111418; --card:#1a1f25; --line:#2a313a; --text:#e6e9ee; --muted:#8b95a3;
+          --ok:#3fb27f; --warn:#e0a63a; --crit:#e5534b; --accent:#4c9aff; --chip:#232a33; }
   * { box-sizing:border-box; }
   body { margin:0; font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
          background:var(--bg); color:var(--text); }
-  main { max-width:980px; margin:0 auto; padding:16px; display:grid; gap:14px;
-         grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); }
-  header { max-width:980px; margin:0 auto; padding:16px 16px 0; display:flex;
-           align-items:center; gap:10px; }
-  h1 { font-size:20px; margin:0; } h2 { font-size:14px; margin:0 0 10px; color:var(--muted);
-           text-transform:uppercase; letter-spacing:.05em; }
+  header { position:sticky; top:0; z-index:2; background:var(--bg); border-bottom:1px solid var(--line); }
+  .bar { max-width:1040px; margin:0 auto; padding:12px 16px 0; display:flex; align-items:center; gap:10px; }
+  h1 { font-size:19px; margin:0; } #meta { color:var(--muted); margin-left:auto; font-size:13px; }
+  nav { max-width:1040px; margin:0 auto; padding:8px 12px 0; display:flex; gap:2px; overflow-x:auto; }
+  nav button { background:none; border:0; color:var(--muted); padding:8px 12px; border-bottom:2px solid transparent;
+               font:inherit; cursor:pointer; white-space:nowrap; border-radius:0; }
+  nav button.on { color:var(--text); border-bottom-color:var(--accent); }
+  .badge { background:var(--crit); color:#fff; border-radius:9px; padding:0 6px; font-size:12px; margin-left:4px; }
+  main { max-width:1040px; margin:0 auto; padding:16px; }
+  .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:14px; }
+  h2 { font-size:13px; margin:0 0 10px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;
+       display:flex; align-items:center; gap:8px; }
+  h2 .sp { margin-left:auto; }
   .dot { width:10px; height:10px; border-radius:50%; background:var(--muted); }
   .dot.ok { background:var(--ok); } .dot.bad { background:var(--crit); }
-  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
-  .wide { grid-column:1/-1; }
-  .item { padding:8px 0; border-top:1px solid var(--line); } .item:first-of-type { border-top:0; }
-  .item small { color:var(--muted); display:block; }
-  .warning { border-left:3px solid var(--warn); padding-left:8px; }
-  .critical { border-left:3px solid var(--crit); padding-left:8px; }
-  .info { border-left:3px solid var(--ok); padding-left:8px; }
-  .off { color:var(--muted); }
+  .item { padding:10px 0; border-top:1px solid var(--line); } .item:first-of-type { border-top:0; }
+  .item small, .muted { color:var(--muted); }
+  .item small { display:block; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .warning { border-left:3px solid var(--warn); padding-left:10px; }
+  .critical { border-left:3px solid var(--crit); padding-left:10px; }
+  .info { border-left:3px solid var(--ok); padding-left:10px; }
+  .stat { font-size:26px; font-weight:600; } .stat + small { color:var(--muted); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; }
+  .chip { display:inline-block; background:var(--chip); border-radius:6px; padding:1px 7px; font-size:12px; color:var(--muted); }
   .empty { color:var(--muted); }
-  #log { height:260px; overflow:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
-  .msg { padding:8px 10px; border-radius:10px; max-width:85%; white-space:pre-wrap; }
+  button { padding:7px 12px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit;
+           font-size:14px; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--text); }
+  button.no { background:transparent; border:1px solid #5a2a2a; color:#f0a5a0; }
+  #log { height:52vh; overflow:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+  .msg { padding:8px 11px; border-radius:10px; max-width:85%; white-space:pre-wrap; }
   .me { align-self:flex-end; background:#24466f; } .bot { align-self:flex-start; background:#232a33; }
   form { display:flex; gap:8px; }
-  input { flex:1; padding:10px; border-radius:8px; border:1px solid var(--line);
-          background:#0d1014; color:var(--text); font:inherit; }
-  button { padding:10px 14px; border:0; border-radius:8px; background:var(--accent);
-           color:#fff; font:inherit; cursor:pointer; }
-  button.ghost { background:transparent; border:1px solid var(--line); color:var(--muted); }
+  input { flex:1; padding:10px; border-radius:8px; border:1px solid var(--line); background:#0d1014;
+          color:var(--text); font:inherit; }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#2b3440; padding:10px 16px;
+           border-radius:10px; display:none; max-width:90%; }
+  .tab { display:none; } .tab.on { display:block; }
 </style>
 </head>
 <body>
 <header>
-  <span id="conn" class="dot"></span><h1>Home Brain</h1>
-  <span id="meta" style="color:var(--muted);margin-left:auto"></span>
+  <div class="bar"><span id="conn" class="dot"></span><h1>Home Brain</h1><span id="meta"></span></div>
+  <nav id="nav">
+    <button data-t="home" class="on">Acasă</button>
+    <button data-t="approvals">Aprobări<span id="nb" class="badge" hidden></span></button>
+    <button data-t="habits">Obiceiuri</button>
+    <button data-t="unusual">Neobișnuit</button>
+    <button data-t="agents">Agenți</button>
+    <button data-t="jarvis">Jarvis</button>
+    <button data-t="log">Jurnal</button>
+  </nav>
 </header>
 <main>
-  <section><h2>Alerte active</h2><div id="alerts"></div></section>
-  <section><h2>Automatizări</h2><div id="rules"></div></section>
-  <section class="wide"><h2>Jarvis</h2>
-    <div id="log"></div>
-    <form id="chat"><input id="q" placeholder="Întreabă ceva despre casă…" autocomplete="off">
-      <button>Trimite</button></form>
-  </section>
-  <section class="wide"><h2>Istoric</h2><div id="history"></div>
-    <p><button class="ghost" id="test">Trimite notificare de test</button></p></section>
+  <div class="tab on" id="t-home">
+    <section><h2>Pe scurt</h2><div class="stats" id="stats"></div></section>
+    <div class="grid">
+      <section><h2>Alerte active</h2><div id="alerts"></div></section>
+      <section><h2>Observații recente</h2><div id="recent-ins"></div></section>
+    </div>
+    <section><h2>Reguli fixe</h2><div id="rules"></div></section>
+  </div>
+
+  <div class="tab" id="t-approvals">
+    <section><h2>Așteaptă decizia ta</h2><div id="approvals"></div></section>
+  </div>
+
+  <div class="tab" id="t-habits">
+    <section><h2>Obiceiuri învățate <button class="ghost sp" onclick="post('api/learn').then(loadHabits)">Reînvață acum</button></h2>
+      <p class="muted" style="margin-top:0">Învățate doar din ce faci tu (nu din automatizări), testate pe istoric.
+      Cele deja automatizate apar separat.</p>
+      <div id="habits"></div></section>
+    <section><h2>Deja automatizate / respinse</h2><div id="habits-other"></div></section>
+  </div>
+
+  <div class="tab" id="t-unusual">
+    <section><h2>Neobișnuit acum</h2><div id="findings"></div></section>
+    <section><h2>Paznic – istoric</h2><div id="history"></div>
+      <div class="row"><button class="ghost" onclick="post('api/test-notify').then(()=>toast('Trimis.'))">Trimite notificare de test</button></div></section>
+  </div>
+
+  <div class="tab" id="t-agents">
+    <section><h2>Agenți</h2><div id="agents"></div></section>
+    <section><h2>Observații</h2><div id="insights"></div></section>
+  </div>
+
+  <div class="tab" id="t-jarvis">
+    <section><h2>Jarvis</h2><div id="log"></div>
+      <form id="chat"><input id="q" placeholder="Întreabă ceva despre casă…" autocomplete="off"><button>Trimite</button></form>
+    </section>
+  </div>
+
+  <div class="tab" id="t-log">
+    <section><h2>Ce am făcut (cu Undo)</h2><div id="done"></div></section>
+    <section><h2>Jurnal</h2><div id="activity"></div></section>
+  </div>
 </main>
+<div id="toast"></div>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const when = t => new Date(t).toLocaleString("ro-RO");
+const when = t => t ? new Date(typeof t === "number" ? t*1000 : t).toLocaleString("ro-RO") : "—";
+const get = p => fetch(p).then(r => r.json());
+const post = (p, b) => fetch(p, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(b||{})})
+  .then(r => r.json()).then(r => { if (r && r.message) toast(r.message); return r; });
+function toast(t) { const e = $("toast"); e.textContent = t; e.style.display = "block"; clearTimeout(e._t); e._t = setTimeout(() => e.style.display = "none", 4000); }
+const empty = t => `<div class="empty">${t}</div>`;
+const AG = {climate:"Climă", energy:"Energie", security:"Securitate", server:"Server & homelab"};
 
-function alertRow(a) {
-  return `<div class="item ${esc(a.level)}">${esc(a.title)}<small>${esc(a.message)} · ${when(a.time)}</small></div>`;
-}
+document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x.id === "t-" + b.dataset.t));
+  ({approvals: loadApprovals, habits: loadHabits, agents: loadAgents, log: loadLog})[b.dataset.t]?.();
+});
 
+let S = {};
 async function refresh() {
-  try {
-    const s = await (await fetch("api/status")).json();
-    $("conn").className = "dot " + (s.connected ? "ok" : "bad");
-    $("meta").textContent = s.connected ? `${s.entities} entități` : "deconectat de la HA";
-    $("alerts").innerHTML = s.active_alerts.length ? s.active_alerts.map(alertRow).join("")
-      : '<div class="empty">Totul e în regulă.</div>';
-    $("rules").innerHTML = s.automations.map(r =>
-      `<div class="item ${r.enabled ? "" : "off"}">${esc(r.name)}
-       <small>${r.enabled ? esc(r.last_action) : "neconfigurată"}</small></div>`).join("");
-    $("history").innerHTML = s.history.length ? s.history.map(alertRow).join("")
-      : '<div class="empty">Nimic încă.</div>';
-    if (!s.assistant.enabled) $("q").placeholder = "Asistentul nu e configurat (ollama_url)";
-  } catch (e) { $("conn").className = "dot bad"; }
+  try { S = await get("api/status"); } catch (e) { $("conn").className = "dot bad"; return; }
+  $("conn").className = "dot " + (S.connected ? "ok" : "bad");
+  $("meta").textContent = S.connected ? `${S.entities} entități` : "deconectat de la HA";
+  $("nb").hidden = !S.pending; $("nb").textContent = S.pending;
+  const m = S.memory || {};
+  $("stats").innerHTML = [
+    [m.transitions ?? 0, "schimbări în memorie"], [m.days ?? 0, "zile de istoric"],
+    [S.pending ?? 0, "așteaptă aprobare"], [(S.findings||[]).length, "lucruri neobișnuite"],
+    [S.llm?.calls ?? 0, "apeluri AI azi"], [m.import ?? "—", "import istoric"],
+  ].map(([v, l]) => `<div><div class="stat">${esc(v)}</div><small>${esc(l)}</small></div>`).join("");
+  $("alerts").innerHTML = S.active_alerts.length ? S.active_alerts.map(alertRow).join("") : empty("Totul e în regulă.");
+  $("rules").innerHTML = S.automations.map(r => `<div class="item">${esc(r.name)}<small>${r.enabled ? esc(r.last_action) : "oprită (o face deja o automatizare din HA)"}</small></div>`).join("");
+  $("history").innerHTML = S.history.length ? S.history.map(alertRow).join("") : empty("Nimic încă.");
+  $("findings").innerHTML = (S.findings||[]).length ? S.findings.map(f => `<div class="item ${esc(f.level)}">${esc(f.title)}<small>${esc(f.message)}</small></div>`).join("")
+    : empty(m.last_learning ? "Nimic neobișnuit." : "Încă învăț ce e normal în casă…");
+  if (!S.assistant.enabled) $("q").placeholder = "Asistentul nu e configurat (ollama_url)";
+  if (document.querySelector("#t-home.on")) get("api/insights").then(r => $("recent-ins").innerHTML = r.length ? r.slice(0,5).map(insRow).join("") : empty("Agenții n-au rulat încă."));
+}
+const alertRow = a => `<div class="item ${esc(a.level)}">${esc(a.title)}<small>${esc(a.message)} · ${when(a.time)}</small></div>`;
+const insRow = i => `<div class="item ${esc(i.severity)}"><span class="chip">${esc(i.agent_name)}</span> ${esc(i.title)}<small>${esc(i.detail)}</small></div>`;
+
+async function loadApprovals() {
+  const r = await get("api/approvals");
+  $("approvals").innerHTML = r.length ? r.map(a => `<div class="item">${esc(a.title)}<small>${esc(a.message)}</small>
+    <div class="row">${(a.buttons||[]).map(([d, t]) => `<button class="${d==="no"||d==="mute"?"no":d==="ok"?"":"ghost"}" onclick="decide('${a.id}','${d}')">${esc(t)}</button>`).join("")}</div></div>`).join("")
+    : empty("Nimic de aprobat.");
+}
+window.decide = (id, d) => post(`api/approvals/${id}/${d}`).then(() => { loadApprovals(); refresh(); });
+
+const ST = {new:"nou", proposed:"propus", created:"automatizat", rejected:"respins", covered:"deja automatizat"};
+async function loadHabits() {
+  const r = await get("api/habits");
+  const act = r.filter(h => ["new","proposed"].includes(h.status));
+  const oth = r.filter(h => !["new","proposed"].includes(h.status));
+  const row = h => `<div class="item">${esc(h.description)}
+    <small><span class="chip">${ST[h.status]||h.status}</span> încredere ${Math.round(h.confidence*100)}% ·
+    backtest ${h.backtest?.hits ?? 0}/${h.backtest?.fired ?? 0} corecte${h.backtest?.extra ? `, ${h.backtest.extra} în plus` : ""}
+    ${h.covered_by ? ` · făcut deja de „${esc(h.covered_by)}”` : ""}${h.require_home ? " · doar când e cineva acasă" : ""}</small>
+    <div class="row">${["new","proposed"].includes(h.status) ? `<button onclick="habit('${h.id}','create')">Creează automatizarea</button>
+      <button class="ghost" onclick="habit('${h.id}','propose')">Trimite pe telefon</button>
+      <button class="no" onclick="habit('${h.id}','reject')">Nu e obicei</button>`
+      : h.status === "rejected" ? `<button class="ghost" onclick="habit('${h.id}','restore')">Repune</button>` : ""}</div></div>`;
+  $("habits").innerHTML = act.length ? act.map(row).join("") : empty(S.memory?.last_learning ? "Niciun obicei nou deocamdată." : "Încă învăț… (prima analiză se face după importul istoricului)");
+  $("habits-other").innerHTML = oth.length ? oth.map(row).join("") : empty("—");
+}
+window.habit = (id, a) => post(`api/habits/${id}/${a}`).then(loadHabits);
+
+async function loadAgents() {
+  const ag = S.agents || {};
+  $("agents").innerHTML = Object.keys(ag).length ? Object.entries(ag).map(([k, s]) => `<div class="item">${esc(AG[k]||k)}
+    <small>ultima rulare: ${when(s.last_run)}${s.skipped ? " · " + esc(s.skipped) : ` · ${s.insights ?? 0} observații în ${s.seconds ?? "?"} s`}</small>
+    <div class="row"><button class="ghost" onclick="runAgent('${k}', this)">Rulează acum</button></div></div>`).join("")
+    : empty("Agenții sunt opriți sau AI-ul nu e configurat.");
+  const r = await get("api/insights");
+  $("insights").innerHTML = r.length ? r.map(insRow).join("") : empty("Nicio observație încă.");
+}
+window.runAgent = (k, b) => { b.disabled = true; b.textContent = "Rulează…"; post(`api/agents/${k}/run`).then(() => { refresh().then(loadAgents); }); };
+
+async function loadLog() {
+  const d = await get("api/done");
+  $("done").innerHTML = d.length ? d.map(x => `<div class="item">${esc(x.name)} – ${esc(x.service)} <span class="chip">${esc(x.source)}</span>
+    <small>${esc(x.reason||"")} · ${when(x.ts)} ${x.status === "undone" ? "· anulat" : ""}</small>
+    ${x.status === "done" ? `<div class="row"><button class="ghost" onclick="post('api/undo/${x.id}').then(loadLog)">Anulează</button></div>` : ""}</div>`).join("") : empty("Nimic încă.");
+  const a = await get("api/activity");
+  $("activity").innerHTML = a.length ? a.map(x => `<div class="item"><span class="chip">${esc(x.kind)}</span> ${esc(x.message)}<small>${when(x.ts)}</small></div>`).join("") : empty("Nimic încă.");
 }
 
-function say(text, who) {
-  const d = document.createElement("div");
-  d.className = "msg " + who; d.textContent = text;
-  $("log").appendChild(d); $("log").scrollTop = 1e9; return d;
-}
-
+function say(text, who) { const d = document.createElement("div"); d.className = "msg " + who; d.textContent = text; $("log").appendChild(d); $("log").scrollTop = 1e9; return d; }
 $("chat").onsubmit = async e => {
-  e.preventDefault();
-  const q = $("q").value.trim(); if (!q) return;
-  $("q").value = ""; say(q, "me");
-  const wait = say("…", "bot");
-  try {
-    const r = await (await fetch("api/chat", {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({message:q})})).json();
-    let t = r.reply;
-    if (r.actions?.length) t += "\n✓ " + r.actions.join("\n✓ ");
-    if (r.refused?.length) t += "\n✗ " + r.refused.join("\n✗ ");
-    wait.textContent = t;
-  } catch (err) { wait.textContent = "Eroare: " + err; }
+  e.preventDefault(); const q = $("q").value.trim(); if (!q) return;
+  $("q").value = ""; say(q, "me"); const w = say("…", "bot");
+  try { const r = await (await fetch("api/chat", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({message:q})})).json();
+    let t = r.reply; if (r.actions?.length) t += "\n✓ " + r.actions.join("\n✓ "); if (r.refused?.length) t += "\n✗ " + r.refused.join("\n✗ ");
+    w.textContent = t; } catch (err) { w.textContent = "Eroare: " + err; }
 };
-
-$("test").onclick = () => fetch("api/test-notify", {method:"POST"});
-refresh(); setInterval(refresh, 10000);
+refresh(); setInterval(refresh, 15000);
 </script>
 </body>
 </html>

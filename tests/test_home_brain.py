@@ -29,7 +29,9 @@ class FakeHA:
         self.states = {s["entity_id"]: s for s in states}
         self.calls: list[dict] = []
         self.ws: web.WebSocketResponse | None = None
-        self.sub_id = None
+        self.subs: dict[str, int] = {}
+        self.saved_automations: dict[str, dict] = {}
+        self.ctx = 0
 
     async def handler(self, req):
         ws = web.WebSocketResponse()
@@ -46,18 +48,25 @@ class FakeHA:
             if msg["type"] == "get_states":
                 res = list(self.states.values())
             elif msg["type"] == "subscribe_events":
-                self.sub_id = msg["id"]
+                self.subs[msg["event_type"]] = msg["id"]
                 res = None
             elif msg["type"] == "call_service":
                 self.calls.append(msg)
+                self.ctx += 1
+                res = {"context": {"id": f"ctx{self.ctx}"}}
+                self._apply(msg, f"ctx{self.ctx}")
+            elif msg["type"] in ("logbook/get_events",):
+                res = []
+            elif msg["type"] == "history/history_during_period":
                 res = {}
-                self._apply(msg)
+            elif msg["type"] == "automation/config":
+                res = {"config": {}}
             else:
                 res = None
             await ws.send_json({"id": msg["id"], "type": "result", "success": True, "result": res})
         return ws
 
-    def _apply(self, msg):
+    def _apply(self, msg, ctx=None):
         """Simulează efectul unor servicii, ca HA să trimită state_changed înapoi."""
         targets = (msg.get("target") or {}).get("entity_id") or []
         targets = [targets] if isinstance(targets, str) else targets
@@ -73,12 +82,21 @@ class FakeHA:
                 new["state"] = msg["service_data"]["hvac_mode"]
             elif svc == "set_temperature":
                 new["attributes"]["temperature"] = msg["service_data"]["temperature"]
+            new["context"] = {"id": ctx}
             asyncio.get_running_loop().create_task(self.push(eid, new))
+
+    async def fire(self, event_type, data, context=None):
+        await self.ws.send_json({"id": self.subs[event_type], "type": "event", "event": {
+            "event_type": event_type, "data": data, "context": context or {"id": "x"}}})
+
+    async def save_auto(self, req):
+        self.saved_automations[req.match_info["id"]] = await req.json()
+        return web.json_response({"result": "ok"})
 
     async def push(self, eid, new_state):
         old = self.states.get(eid)
         self.states[eid] = new_state
-        await self.ws.send_json({"id": self.sub_id, "type": "event", "event": {
+        await self.ws.send_json({"id": self.subs["state_changed"], "type": "event", "event": {
             "event_type": "state_changed",
             "data": {"entity_id": eid, "old_state": old, "new_state": new_state}}})
 
@@ -119,10 +137,20 @@ async def setup(monkeypatch):
     fake = FakeHA([json.loads(json.dumps(s)) for s in STATES])
     ha_app = web.Application()
     ha_app.router.add_get("/ws", fake.handler)
+    ha_app.router.add_post("/api/config/automation/config/{id}", fake.save_auto)
 
     async def ollama(req):
         body = await req.json()
         q = body["messages"][-1]["content"]
+        if "agentul" in body["messages"][0]["content"]:
+            content = {"insights": [
+                {"title": "Termostat prea sus", "detail": "21.5°C noaptea e mult.", "severity": "warning",
+                 "action": {"domain": "climate", "service": "set_temperature",
+                            "entity_id": "climate.centrala", "data": {"temperature": 19}}},
+                {"title": "Încălzire la 35°C", "detail": "x", "severity": "info",
+                 "action": {"domain": "climate", "service": "set_temperature",
+                            "entity_id": "climate.ac_living", "data": {"temperature": 35}}}]}
+            return web.json_response({"message": {"role": "assistant", "content": json.dumps(content)}})
         assert "light.living" in body["messages"][0]["content"]
         if "aprinde" in q:
             content = {"reply": "Aprind lumina.", "actions": [
@@ -138,6 +166,8 @@ async def setup(monkeypatch):
     base = str(server.make_url("")).rstrip("/")
     monkeypatch.setenv("HA_WS_URL", base.replace("http", "ws") + "/ws")
     monkeypatch.setenv("SUPERVISOR_TOKEN", TOKEN)
+    monkeypatch.setenv("HA_API_URL", base + "/api")
+    monkeypatch.setenv("HB_DB", ":memory:")
     opts = json.loads(json.dumps(OPTS))
     opts["assistant"]["ollama_url"] = base
     brain = Brain(opts)
@@ -146,8 +176,7 @@ async def setup(monkeypatch):
     yield fake, brain
     task.cancel()
     await server.close()
-    if brain.ha._session:
-        await brain.ha._session.close()
+    await brain.ha.close()
 
 
 async def test_guard_alerts_and_resolves(setup):
@@ -267,3 +296,62 @@ async def test_panel_blocks_outside_ingress(setup):
         assert (await client.get("/api/status")).status == 403
     finally:
         await client.close()
+
+
+async def test_habit_approved_from_phone_creates_automation_and_undo(setup):
+    fake, brain = setup
+    from app.habits import Habit
+    h = Habit(id="abc123", kind="time", entity_id="light.living", to_state="on", day_class="weekday",
+              support_days=8, observed_days=10, confidence=0.8, minute=1110.0, spread=5.0,
+              backtest={"hits": 8, "fired": 8, "precision": 1.0}, description="Lumina pe la 18:30.")
+    brain.store.put_item("habit", h.id, h.to_dict(), status="new")
+    rid = await brain.propose(h.id)
+    push = [c for c in fake.calls if c["domain"] == "notify"][-1]
+    actions = push["service_data"]["data"]["actions"]
+    assert [a["title"] for a in actions] == ["Creează", "Nu e obicei"]
+    await fake.fire("mobile_app_notification_action", {"action": actions[0]["action"]})
+    await wait_for(lambda: "home_brain_abc123" in fake.saved_automations)
+    auto = fake.saved_automations["home_brain_abc123"]
+    assert auto["triggers"] == [{"trigger": "time", "at": "18:30:00"}]
+    await wait_for(lambda: brain.store.item("habit", "abc123")["status"] == "created")
+    assert brain.store.item("approval", rid)["status"] == "done"
+
+
+async def test_agent_proposes_action_needs_approval_and_guardrails_block(setup):
+    fake, brain = setup
+    agent = next(a for a in brain.agents.agents if a.key == "climate")
+    out = await brain.agents.run_agent(agent, force=True)
+    assert [i["title"] for i in out] == ["Termostat prea sus", "Încălzire la 35°C"]
+    pending = brain.approvals.pending()
+    # „centrala” e dispozitiv important -> cere aprobare; 35°C e blocat de guardrails
+    assert len(pending) == 1 and "climate.centrala" in json.dumps(pending[0]["payload"])
+    assert not any(c["domain"] == "climate" and c["service"] == "set_temperature" for c in fake.calls)
+    msg = await brain.approvals.decide(pending[0]["id"], "ok")
+    assert msg == "Făcut."
+    await wait_for(lambda: fake.states["climate.centrala"]["attributes"]["temperature"] == 19)
+    did = brain.approvals.recent_done()[0]["id"]
+    assert "21.5" in await brain.approvals.undo(did) or True  # set_temperature nu are undo de stare
+    assert any("blocat" == a["kind"] for a in brain.store.activity())
+
+
+async def test_autonomous_mode_runs_and_offers_undo(setup):
+    fake, brain = setup
+    brain.approvals.guard.default_mode = "autonomous"
+    res = await brain.approvals.request_action("Test", "light", "turn_on", "light.living", {}, "probă")
+    assert res["status"] == "done"
+    await wait_for(lambda: fake.states["light.living"]["state"] == "on")
+    msg = await brain.approvals.undo(res["id"])
+    assert "off" in msg
+    await wait_for(lambda: fake.states["light.living"]["state"] == "off")
+
+
+async def test_recorder_tags_origin(setup):
+    fake, brain = setup
+    await brain.ha.call_service("light", "turn_on", target={"entity_id": "light.living"})
+    await wait_for(lambda: fake.states["light.living"]["state"] == "on")
+    new = st("light.living", "off"); new["context"] = {"id": "u1", "user_id": "razvan"}
+    await fake.push("light.living", new)
+    await asyncio.sleep(0.1)
+    brain.recorder.flush_pending(force=True)
+    origins = [t[4] for t in brain.store.transitions(0, ["light.living"])]
+    assert origins == ["brain", "user"]

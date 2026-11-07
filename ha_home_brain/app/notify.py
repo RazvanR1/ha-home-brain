@@ -49,13 +49,16 @@ class Notifier:
             self.history.appendleft(ok)
             await self.send(ok.title, message, "info")
 
-    async def send(self, title: str, message: str, level: str = "info") -> None:
+    async def send(self, title: str, message: str, level: str = "info", data: dict | None = None) -> None:
         for svc in self.services:
             domain, _, name = svc.partition(".")
             if not name:
                 domain, name = "notify", domain
+            payload = {"title": title, "message": message}
+            if data and name.startswith("mobile_app_"):
+                payload["data"] = data
             try:
-                await self.ha.call_service(domain, name, {"title": title, "message": message})
+                await self.ha.call_service(domain, name, payload)
             except Exception as err:  # noqa: BLE001
                 log.warning("Nu am putut trimite prin %s: %s", svc, err)
         if self.ntfy_url:
