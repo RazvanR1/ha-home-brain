@@ -49,6 +49,7 @@ class Brain:
                                 min_support=int(learn.get("min_support_days", 4)),
                                 min_confidence=float(learn.get("min_confidence", 0.6)))
         self.detector = Detector(self.ha, opts.get("unusual", {}), self.tz, self.persons)
+        self.max_finding_push = int(opts.get("unusual", {}).get("max_push_per_day", 5))
         self.detector.muted = set(self.store.get("muted", []))
         self.detector.dwell_factor = self.store.get("dwell_factor", {})
         self.llm = LLM(opts.get("assistant", {}))
@@ -64,6 +65,18 @@ class Brain:
         self.approvals.on("finding", self._decide_finding)
         self.last_learning: float | None = None
         self.findings: dict[str, dict] = {}
+        self._migrate()
+
+    def _migrate(self) -> None:
+        if self.store.get("migrated_042"):
+            return
+        for a in self.store.items("approval", "pending", limit=1000):
+            if a["kind"] in ("finding", "action"):
+                self.store.set_status("approval", a["id"], "resolved")
+        self.store.delete_items("insight")
+        for k in ("climate", "energy", "security", "server"):
+            self.store.set(f"agent_fp:{k}", None)
+        self.store.set("migrated_042", True)
 
     # ---------- învățare ----------
     def names(self) -> dict[str, str]:
@@ -157,14 +170,24 @@ class Brain:
         found = {f.key: f for f in self.detector.check(recent)}
         now = time.time()
         quiet = self.agents._quiet_now()
-        for key, f in found.items():
-            if key in self.findings or self.store.get(f"snooze:{key}", 0) > now:
-                continue
-            self.findings[key] = f.to_dict()
-            await self.approvals.ask("finding", f"{key}:{int(now // 86400)}", f.title, f.message,
-                                     {"key": key, "kind": f.kind, "entity_id": f.entity_id},
+        new = [f for k, f in found.items()
+               if k not in self.findings and self.store.get(f"snooze:{k}", 0) <= now]
+        today = datetime.now(self.tz).date().isoformat()
+        pushed = self.store.get(f"finding_push:{today}", 0)
+        burst = len(new) > 3
+        for f in new:
+            self.findings[f.key] = f.to_dict()
+            push = (f.level == "critical" or not quiet) and not burst and pushed < self.max_finding_push
+            pushed += 1 if push else 0
+            await self.approvals.ask("finding", f"{f.key}:{int(now // 86400)}", f.title, f.message,
+                                     {"key": f.key, "kind": f.kind, "entity_id": f.entity_id},
                                      buttons=[("seen", "Am văzut"), ("mute", "Nu e problemă")],
-                                     notify=f.level == "critical" or not quiet)
+                                     notify=push)
+        if burst and not quiet:
+            await self.notifier.send("Lucruri neobișnuite în casă",
+                                     f"{len(new)} observații noi, de ex.: {new[0].message} "
+                                     f"Detalii în panoul Home Brain.", "warning")
+        self.store.set(f"finding_push:{today}", pushed)
         for key in list(self.findings):
             if key not in found:
                 self.findings.pop(key)
@@ -237,6 +260,7 @@ async def amain() -> None:
         brain.learning_loop(),
         brain.unusual_loop(),
         brain.agents.run_forever(),
+        brain.agents.digest_loop(),
     )
 
 

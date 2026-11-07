@@ -332,6 +332,7 @@ async def test_habit_approved_from_phone_creates_automation_and_undo(setup):
 async def test_agent_proposes_action_needs_approval_and_guardrails_block(setup):
     fake, brain = setup
     agent = next(a for a in brain.agents.agents if a.key == "climate")
+    brain.agents.allow_actions = True
     out = await brain.agents.run_agent(agent, force=True)
     assert [i["title"] for i in out] == ["Termostat prea sus", "Încălzire la 35°C"]
     pending = brain.approvals.pending()
@@ -398,3 +399,21 @@ async def test_guard_survives_ha_restart_and_own_restart(setup):
     brain.ha.states["light.baie"].update(state="on")
     await g2.run_once()
     assert n2.active == {}
+
+
+async def test_agents_default_no_actions_no_push_and_findings_burst(setup):
+    fake, brain = setup
+    agent = next(a for a in brain.agents.agents if a.key == "climate")
+    await brain.agents.run_agent(agent, force=True)
+    assert brain.approvals.pending() == []  # implicit: fără acțiuni propuse
+    assert not [c for c in fake.calls if c["domain"] == "notify"]  # implicit: doar rezumat seara
+    # 6 observații noi deodată -> o singură notificare rezumat
+    from app.anomaly import Finding
+    brain.detector.base = object()
+    brain.detector.check = lambda recent, now=None: [
+        Finding(f"silent:sensor.s{i}", "silent", f"sensor.s{i}", "Senzor tăcut", f"s{i} tace") for i in range(6)]
+    brain.agents._quiet_now = lambda: False
+    await brain.check_unusual()
+    pushes = [c for c in fake.calls if c["domain"] == "notify"]
+    assert len(pushes) == 1 and "6 observații" in pushes[0]["service_data"]["message"]
+    assert len(brain.approvals.pending()) == 6

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2 – mai puțin zgomot
+- Senzori tăcuți: doar cei care se schimbă practic în fiecare oră (nu bateriile, nu ce raportează doar la schimbare).
+- Mai mult de 3 lucruri neobișnuite deodată -> o singură notificare rezumat; cel mult 5 pe zi.
+- Agenți: fără entități indisponibile și fără automatizări în context, reguli stricte anti-inventat,
+  implicit fără acțiuni propuse și fără notificări imediate – un singur rezumat seara (`digest_hour`).
+- Curăță observațiile și cererile greșite din 0.4.0/0.4.1.
+
 ## 0.4.1
 - Paznic: ține minte singur când a văzut ultima oară fiecare dispozitiv funcționând (o repornire HA nu mai face ca tot ce era deja picat să pară nou); alertele deschise rămân salvate peste restarturi, fără notificări duplicate.
 

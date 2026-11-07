@@ -1,5 +1,5 @@
 name: Home Brain
-version: "0.4.1"
+version: "0.4.2"
 slug: ha_home_brain
 description: Creierul casei - învață obiceiurile, vede ce e neobișnuit, agenți AI locali, aprobări din telefon
 url: https://github.com/RazvanR1/ha-home-brain
@@ -45,6 +45,7 @@ options:
     dwell: true
     open_away: false
     min_days: 5
+    max_push_per_day: 5
     ignore: []
   safety:
     autonomy: copilot
@@ -60,6 +61,9 @@ options:
       - server
     agents_interval_hours: 6
     quiet_hours: "23-7"
+    notify: digest
+    digest_hour: 19
+    allow_actions: false
   presence_camera:
     persons: []
     camera_switches: []
@@ -115,6 +119,7 @@ schema:
     dwell: bool
     open_away: bool
     min_days: int(1,60)
+    max_push_per_day: int(0,50)
     ignore:
       - str
   safety:
@@ -129,6 +134,9 @@ schema:
       - list(climate|energy|security|server)
     agents_interval_hours: float(0.5,168)
     quiet_hours: str
+    notify: list(none|digest|critical)
+    digest_hour: int(0,23)
+    allow_actions: bool
   presence_camera:
     persons:
       - str

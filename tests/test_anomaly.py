@@ -82,3 +82,13 @@ def test_flapping_and_mute():
     assert [x.kind for x in det.check(recent, NOW)] == ["flapping"]
     det.muted.add("switch.x:flapping")
     assert det.check(recent, NOW) == []
+
+
+def test_battery_and_irregular_sensors_are_not_silent():
+    s = {"sensor.b": st("80", 9 * 3600, device_class="battery", state_class="measurement"),
+         "sensor.t": st("21", 9 * 3600, device_class="temperature", state_class="measurement")}
+    hour_now = int(NOW // 3600)
+    # temperatura se schimbă doar în 1 din 4 ore -> raportează la schimbare, nu e „tăcută”
+    sparse = [("sensor.t", h, 3, 63.0, 1323.0, 20.9, 21.1) for h in range(hour_now - 240, hour_now, 4)]
+    batt = [("sensor.b", h, 2, 160.0, 12800.0, 80, 80) for h in range(hour_now - 240, hour_now)]
+    assert make(s, sparse + batt).check([], NOW) == []

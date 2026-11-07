@@ -136,6 +136,10 @@ class Store:
             self.db.execute("UPDATE items SET status=?, ts=? WHERE kind=? AND id=?",
                             (status, time.time(), kind, item_id))
 
+    def delete_items(self, kind: str) -> None:
+        with self._lock:
+            self.db.execute("DELETE FROM items WHERE kind=?", (kind,))
+
     def item(self, kind: str, item_id: str) -> dict | None:
         with self._lock:
             row = self.db.execute("SELECT status, ts, data FROM items WHERE kind=? AND id=?",

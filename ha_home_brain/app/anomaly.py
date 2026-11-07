@@ -67,7 +67,8 @@ class Baselines:
         self.tz = tz
         self.hourly: dict[tuple[str, int], tuple[int, float, float, float, float, int]] = {}
         self.overall: dict[str, tuple[float, float]] = {}
-        self.rate: dict[str, float] = {}  # eșantioane pe oră, în medie
+        self.rate: dict[str, float] = {}      # schimbări pe oră, în medie, pe toată fereastra
+        self.coverage: dict[str, float] = {}  # ce fracție din ore au măcar o valoare
         self.dwell: dict[tuple[str, str], list[float]] = defaultdict(list)
         self.max_burst: dict[str, int] = {}
 
@@ -90,8 +91,15 @@ class Baselines:
             mean = total / n
             std = math.sqrt(max(sq / n - mean * mean, 0))
             self.hourly[(eid, hod)] = (n, mean, std, mn, mx, days)
+        first_hour: dict[str, int] = {}
+        last_hour = 0
+        for eid, hour, *_ in samples:
+            first_hour[eid] = min(first_hour.get(eid, hour), hour)
+            last_hour = max(last_hour, hour)
         for eid in hours_seen:
-            self.rate[eid] = total_n[eid] / hours_seen[eid]
+            window = max(last_hour - first_hour[eid] + 1, 1)
+            self.rate[eid] = total_n[eid] / window
+            self.coverage[eid] = hours_seen[eid] / window
             self.overall[eid] = (mins[eid], maxs[eid])
 
         last: dict[str, tuple[float, str]] = {}
@@ -177,9 +185,13 @@ class Detector:
                        f"(de obicei {mean:.1f}{unit}, între {lo_all:g} și {hi_all:g}).")
 
     def _silent(self, eid: str, st: dict, now: float) -> Finding | None:
+        # Doar senzorii care se schimbă practic în fiecare oră; bateriile și ce raportează
+        # doar la schimbare nu „tac”, pur și simplu nu au ce spune.
         rate = self.base.rate.get(eid, 0)
-        if rate < 1 or st.get("state") in ("unavailable", "unknown"):
-            return None  # raportează rar oricum; „unavailable” e treaba paznicului
+        if rate < 1 or self.base.coverage.get(eid, 0) < 0.85 \
+                or st.get("attributes", {}).get("device_class") == "battery" \
+                or st.get("state") in ("unavailable", "unknown"):
+            return None
         last = _ts(st.get("last_reported")) or _ts(st.get("last_updated"))
         if last is None:
             return None

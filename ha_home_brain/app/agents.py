@@ -15,10 +15,15 @@ log = logging.getLogger("home_brain.agents")
 AGENT_PROMPT = """Ești agentul „{name}” din creierul casei RusHome. Răspunzi în română, concret și scurt.
 Despre casă: {site}
 Sarcina ta: {task}
-Primești mai jos datele relevante (stări curente și statistici pe 24 h).
-Găsește cel mult 3 lucruri care chiar contează: probleme, riscuri, risipă sau îmbunătățiri.
-Nu repeta ce e evident sau normal. Dacă totul e în regulă, întoarce lista goală.
-Poți propune o acțiune doar pe entity_id care apar în date; ea va fi aprobată de om.
+Primești mai jos datele (entity_id | nume | stare | statistici pe 24 h). Entitățile indisponibile
+NU apar aici: de ele se ocupă paznicul, nu le comenta.
+Reguli stricte:
+- Folosește DOAR cifrele din date. Nu inventa cauze, nu ghici, nu presupune. Dacă nu ești sigur, nu raporta.
+- Numele unei automatizări sau al unui senzor NU înseamnă că acel lucru s-a întâmplat.
+- Temperaturi de 40-70°C la procesoare/discuri de server sunt normale; nu le raporta decât peste 75°C.
+- „critical” DOAR pentru pericol imediat: apă, gaz, fum, casă deschisă când nu e nimeni, server oprit.
+- Cel mult 3 observații, doar ce chiar contează. Dacă totul e normal, întoarce lista goală (asta e bine).
+{actions}
 Răspunde DOAR cu JSON:
 {{"insights": [{{"title": "...", "detail": "...", "severity": "info|warning|critical",
   "action": null | {{"domain": "...", "service": "...", "entity_id": "...", "data": {{}}}}}}]}}"""
@@ -55,6 +60,10 @@ class EnergyAgent(Agent):
         return eid.startswith("sensor.") and dc in ("power", "energy") and "_container" not in eid
 
 
+NO_CONTEXT_DOMAINS = ("automation.", "script.", "input_", "scene.", "button.", "event.", "select.",
+                      "number.", "text.", "time.", "image.", "notify.", "tts.", "stt.", "conversation.")
+
+
 class SecurityAgent(Agent):
     key, name = "security", "Securitate"
     task = ("siguranța casei: cine e acasă, uși, mișcare, camere, alarmă, scurgeri de apă/gaz/fum, "
@@ -69,10 +78,10 @@ class SecurityAgent(Agent):
 
 class ServerAgent(Agent):
     key, name = "server", "Server & homelab"
-    task = ("sănătatea homelab-ului: Proxmox, TrueNAS (pool-uri, scrub, discuri), containere Docker, "
-            "backup-uri (Backrest), servicii căzute, spațiu pe disc, temperaturi, actualizări.")
-    pattern = re.compile(r"proxmox|pve|truenas|portainer|docker|backrest|scrutiny|uptime|netdata|"
-                         r"_container$|pool|disk|smart|backup|update\.", re.I)
+    task = ("sănătatea homelab-ului: Proxmox, TrueNAS (pool-uri, discuri), containere Docker oprite, "
+            "spațiu pe disc aproape plin (peste 85%), temperaturi de disc peste 55°C, actualizări disponibile.")
+    pattern = re.compile(r"proxmox|pve|truenas|portainer|docker|scrutiny|uptime|netdata|"
+                         r"_container$|pool|disk|smart|^update\.", re.I)
 
     def select(self, eid, st):
         if not self.pattern.search(eid):
@@ -81,6 +90,7 @@ class ServerAgent(Agent):
 
 
 ALL_AGENTS = [ClimateAgent(), EnergyAgent(), SecurityAgent(), ServerAgent()]
+ACTION_DOMAINS = {"light", "switch", "climate", "fan", "humidifier", "media_player", "vacuum"}
 
 
 class Agents:
@@ -96,6 +106,9 @@ class Agents:
         enabled = set(cfg.get("agents") or [a.key for a in ALL_AGENTS])
         self.agents = [a for a in ALL_AGENTS if a.key in enabled]
         self.quiet = cfg.get("quiet_hours", "23-7")
+        self.allow_actions = bool(cfg.get("allow_actions", False))
+        self.notify_mode = cfg.get("notify", "digest")  # none | digest | critical
+        self.digest_hour = int(cfg.get("digest_hour", 19))
         self.status: dict[str, dict] = {a.key: {"last_run": None, "skipped": "încă nu a rulat"}
                                         for a in self.agents}
 
@@ -110,7 +123,14 @@ class Agents:
         return {e: (a[2], a[1] / a[0], a[3]) for e, a in acc.items() if a[0]}
 
     def context(self, agent: Agent) -> tuple[str, str]:
-        rows = [(e, s) for e, s in sorted(self.ha.states.items()) if agent.select(e, s)]
+        rows, down = [], 0
+        for e, s in sorted(self.ha.states.items()):
+            if e.startswith(NO_CONTEXT_DOMAINS) or not agent.select(e, s):
+                continue
+            if s.get("state") in ("unavailable", "unknown", None):
+                down += 1
+                continue
+            rows.append((e, s))
         stats = self._stats24({e for e, _ in rows})
         since = time.time() - 86400
         changes: dict[str, int] = {}
@@ -140,6 +160,8 @@ class Agents:
             except (TypeError, ValueError):
                 fp_parts.append(f"{eid}={st.get('state')}")
         fp = hashlib.sha1("|".join(fp_parts).encode()).hexdigest()
+        if down and lines:
+            lines.append(f"(+ {down} entități indisponibile, urmărite de paznic)")
         return "\n".join(lines), fp
 
     def _quiet_now(self) -> bool:
@@ -164,8 +186,10 @@ class Agents:
         extra = ""
         if anomalies:
             extra = "\nObservații locale deschise:\n" + "\n".join(f"- {i['message']}" for i in anomalies[:5])
+        actions_rule = ("Poți propune o acțiune doar pe entity_id din date; va fi aprobată de om."
+                        if self.allow_actions else 'Nu propune acțiuni: pune mereu "action": null.')
         messages = [{"role": "system", "content": AGENT_PROMPT.format(name=agent.name, site=self.site,
-                                                                     task=agent.task)},
+                                                                     task=agent.task, actions=actions_rule)},
                     {"role": "user", "content": f"Ora: {datetime.now(self.tz):%A %H:%M}\nDate:\n{ctx}{extra}"}]
         try:
             data, raw = await self.llm.chat_json(messages)
@@ -185,10 +209,12 @@ class Agents:
             is_new = self.store.item("insight", iid) is None
             self.store.put_item("insight", iid, item, status="new")
             out.append(item)
-            if is_new and sev in ("warning", "critical") and (sev == "critical" or not self._quiet_now()):
+            if is_new and self.notify_mode == "critical" and sev == "critical":
                 await self.notifier.send(f"{agent.name}: {item['title']}", item["detail"], sev)
             act = ins.get("action")
-            if isinstance(act, dict) and act.get("entity_id") in self.ha.states:
+            if self.allow_actions and isinstance(act, dict) and act.get("entity_id") in self.ha.states \
+                    and str(act.get("domain")) in ACTION_DOMAINS and act.get("service") \
+                    and act["entity_id"].split(".")[0] == act.get("domain"):
                 await self.approvals.request_action(agent.name, str(act.get("domain", "")),
                                                     str(act.get("service", "")), act["entity_id"],
                                                     act.get("data") if isinstance(act.get("data"), dict) else {},
@@ -210,6 +236,25 @@ class Agents:
                     log.exception("Agentul %s a eșuat", agent.name)
                 await asyncio.sleep(5)
             await asyncio.sleep(self.interval)
+
+    async def digest_loop(self) -> None:
+        """Un singur rezumat pe zi cu observațiile noi ale agenților, în loc de notificări răzlețe."""
+        if self.notify_mode != "digest":
+            return
+        while True:
+            await asyncio.sleep(600)
+            now = datetime.now(self.tz)
+            day = now.date().isoformat()
+            if now.hour < self.digest_hour or self.store.get("digest_sent") == day:
+                continue
+            start = datetime(now.year, now.month, now.day, tzinfo=self.tz).timestamp()
+            fresh = [i for i in self.insights(100) if i["ts"] >= start and i["severity"] != "info"]
+            self.store.set("digest_sent", day)
+            if not fresh:
+                continue
+            lines = [f"• {i['agent_name']}: {i['title']}" for i in fresh[:5]]
+            more = f"\n…și încă {len(fresh) - 5}" if len(fresh) > 5 else ""
+            await self.notifier.send("Home Brain – rezumatul zilei", "\n".join(lines) + more, "info")
 
     def insights(self, limit: int = 40) -> list[dict]:
         return self.store.items("insight", limit=limit)
