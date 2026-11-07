@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.4
+- README public (engleză + română), licență MIT, teste automate pe GitHub, explicații în tab-ul Configuration.
+
 ## 0.4.3
 - Memoria urmărește și senzorii binari de tip încălzire / putere / funcționare (ex. „centrala funcționează”).
 

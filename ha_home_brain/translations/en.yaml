@@ -1,0 +1,145 @@
+configuration:
+  log_level:
+    name: Log level
+  time_zone:
+    name: Time zone
+    description: IANA time zone used for habits and quiet hours, e.g. Europe/Bucharest.
+  site_context:
+    name: About your home
+    description: A few sentences about your home (who lives there, schedule, heating). Given to the AI agents and Jarvis.
+  notify_services:
+    name: Notification services
+    description: Where alerts and approval requests are sent, e.g. notify.mobile_app_my_phone. Buttons work with mobile_app services.
+  ntfy_url:
+    name: ntfy topic URL
+    description: Optional. Also send alerts to this ntfy topic.
+  guard:
+    name: Guard
+    description: Alerts for devices that become unavailable and low batteries.
+    fields:
+      unavailable_minutes:
+        name: Unavailable for (minutes)
+        description: Alert after a device has been unavailable this long.
+      max_unavailable_hours:
+        name: Ignore after (hours)
+        description: Devices down longer than this are considered known/removed and are not alerted.
+      bad_states:
+        name: Bad states
+        description: States treated as a problem (add "unknown" if you want).
+      battery_threshold:
+        name: Low battery (%)
+      interval_seconds:
+        name: Check interval (seconds)
+      ignore:
+        name: Ignore
+        description: Entity patterns to ignore, e.g. sensor.*_linkquality
+  learning:
+    name: Habit learning
+    description: Learns habits from what people do and proposes native automations.
+    fields:
+      enabled:
+        name: Enabled
+      persons:
+        name: People
+        description: person.* entities, used for "only when someone is home" and presence checks.
+      history_import_days:
+        name: History to import (days)
+        description: Imported once at first start so learning can begin immediately.
+      min_support_days:
+        name: Minimum days
+        description: A habit must appear on at least this many days.
+      min_confidence:
+        name: Minimum confidence
+        description: Share of days on which the habit must appear (0.6 = 60 %).
+      propose_automations:
+        name: Propose automations
+        description: Send strong habits to your phone as automation proposals.
+      max_proposals_per_day:
+        name: Proposals per day
+  unusual:
+    name: Unusual activity
+    description: Learns what is normal and flags what is not. No device lists needed.
+    fields:
+      range:
+        name: Abnormal values
+        description: Values far outside what is normal for that hour.
+      silent:
+        name: Silent sensors
+        description: Sensors that normally change every hour and suddenly stop.
+      flapping:
+        name: Flapping
+        description: Devices switching on/off far more often than usual.
+      dwell:
+        name: Left too long
+        description: Doors, lights, devices left in a state much longer than usual.
+      open_away:
+        name: Open while away
+        description: Doors/windows open while nobody is home.
+      min_days:
+        name: Minimum days of data
+      max_push_per_day:
+        name: Notifications per day
+        description: More than 3 at once become a single summary.
+      ignore:
+        name: Ignore
+        description: Entity patterns to ignore.
+  safety:
+    name: Safety
+    description: What Home Brain may do on its own. Critical devices always need approval.
+    fields:
+      autonomy:
+        name: Autonomy
+        description: shadow = only log, copilot = ask first, autonomous = do safe things and offer Undo.
+      autonomy_overrides:
+        name: Per-domain autonomy
+        description: e.g. light:autonomous
+      min_temperature:
+        name: Minimum temperature
+      max_temperature:
+        name: Maximum temperature
+      actionable_notifications:
+        name: Buttons in notifications
+  agents:
+    name: AI agents
+    description: Local agents (Ollama) for climate, energy, security and server. Run only when something changed.
+    fields:
+      agents:
+        name: Agents
+      agents_interval_hours:
+        name: Interval (hours)
+      quiet_hours:
+        name: Quiet hours
+        description: No non-critical notifications in this range, e.g. 23-7.
+      notify:
+        name: Notifications
+        description: none, digest (one summary per day) or critical.
+      digest_hour:
+        name: Digest hour
+      allow_actions:
+        name: Allow actions
+        description: Let agents propose device actions (always via approval).
+  presence_camera:
+    name: Rule – cameras only when away
+    description: Optional fixed rule. Leave empty if you already have an automation for this.
+  heating_ac_lock:
+    name: Rule – boiler off while AC heats
+    description: Optional fixed rule. Leave empty if you already have an automation for this.
+  follow_thermostat:
+    name: Rule – valves follow thermostat
+    description: Optional fixed rule. Leave empty if you already have an automation for this.
+  assistant:
+    name: AI model (Ollama) and Jarvis
+    fields:
+      ollama_url:
+        name: Ollama URL
+        description: e.g. http://192.168.1.50:11434. Leave empty to disable AI features.
+      model:
+        name: Model
+        description: e.g. qwen3.5:9b
+      allowed_domains:
+        name: Domains Jarvis may control
+      max_entities:
+        name: Max entities in context
+      num_ctx:
+        name: Context size
+        description: Keep it equal to your Ollama integration in HA so the model is not reloaded.

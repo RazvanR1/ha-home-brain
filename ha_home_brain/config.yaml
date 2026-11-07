@@ -1,7 +1,7 @@
 name: Home Brain
-version: "0.4.3"
+version: "0.4.4"
 slug: ha_home_brain
-description: Creierul casei - învață obiceiurile, vede ce e neobișnuit, agenți AI locali, aprobări din telefon
+description: Local brain for your home – learns habits, spots the unusual, local AI agents, approvals from your phone
 url: https://github.com/RazvanR1/ha-home-brain
 arch:
   - amd64
