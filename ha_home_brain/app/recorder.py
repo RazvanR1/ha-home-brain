@@ -13,7 +13,8 @@ log = logging.getLogger("home_brain.recorder")
 ACTUATORS = {"light", "switch", "fan", "cover", "climate", "media_player", "vacuum",
              "humidifier", "lock", "input_boolean", "script", "alarm_control_panel", "water_heater"}
 EVENT_BINARY = {"door", "window", "opening", "garage_door", "motion", "occupancy", "presence",
-                "gas", "moisture", "smoke", "lock", "problem", "safety", "vibration"}
+                "gas", "moisture", "smoke", "lock", "problem", "safety", "vibration",
+                "heat", "power", "running", "plug"}
 NUMERIC_CLASSES = {"temperature", "humidity", "power", "illuminance", "co2", "pm25", "pm10",
                    "pressure", "voltage", "current", "battery", "moisture", "carbon_dioxide",
                    "volatile_organic_compounds", "signal_strength"}

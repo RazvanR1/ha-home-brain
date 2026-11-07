@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.3
+- Memoria urmărește și senzorii binari de tip încălzire / putere / funcționare (ex. „centrala funcționează”).
+
 ## 0.4.2 – mai puțin zgomot
 - Senzori tăcuți: doar cei care se schimbă practic în fiecare oră (nu bateriile, nu ce raportează doar la schimbare).
 - Mai mult de 3 lucruri neobișnuite deodată -> o singură notificare rezumat; cel mult 5 pe zi.
